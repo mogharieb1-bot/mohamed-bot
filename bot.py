@@ -165,14 +165,15 @@ Rules:
         print(f"Error: {e}")
         bot.reply_to(message, "An error occurred 😅 Try /clear and start again")
 
-# ========== Flask Server for Render Keep Alive ==========
+# ========== Flask Server for Railway Keep Alive ==========
 app = Flask('')
 @app.route('/')
 def home(): 
-    return "Bot is alive on Render ✅"
+    return "Bot is alive on Railway ✅"
 
 def run_server():
-    app.run(host='0.0.0.0', port=10000)
+    port = int(os.environ.get('PORT', 10000))  # ده التعديل الوحيد - ياخد بورت Railway
+    app.run(host='0.0.0.0', port=port)
 
 threading.Thread(target=run_server).start()
 # ======================================================
