@@ -1,6 +1,4 @@
-pyTelegramBotAPI==4.14.0
-google-genai==0.3.0 
-flask
 gunicorn
-
-
+python-telegram-bot
+flask
+aiohttp
