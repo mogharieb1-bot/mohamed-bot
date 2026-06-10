@@ -3,13 +3,12 @@ from google import genai
 from google.genai import types
 from collections import defaultdict
 import os
-import threading
 from flask import Flask
 
-# ================== CREDENTIALS FROM RENDER ==================
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_TOKEN")  # غيرتها عشان Render
+# ================== CREDENTIALS FROM RAILWAY ==================
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")   
-ADMIN_ID = os.environ.get("ADMIN_ID")  # ضفتها عشان تستخدمها بعدين لو عايز
+ADMIN_ID = os.environ.get("ADMIN_ID")
 # ==============================================================
 
 # Initialize Gemini 2.0 Flash
@@ -30,13 +29,12 @@ if os.path.exists('aboutme.txt'):
 else:
     MY_INFO = "aboutme.txt file not found. Please add your info inside it."
 
-# Portfolio URLs - opens inside Telegram with one click
+# Portfolio URLs
 PORTFOLIO_URL = "https://sparkly-kashata-69f510.netlify.app/"
 PORTFOLIO_URL2 = "https://incredible-tarsier-1d356b.netlify.app/"
 # ==============================================================
 
 def split_and_send(chat_id, text, reply_to_message=None, markup=None):
-    """تقسم الرسالة لو طويلة وتبعتها على كذا جزء"""
     max_length = 4000
     for i in range(0, len(text), max_length):
         chunk = text[i:i+max_length]
@@ -48,18 +46,9 @@ def split_and_send(chat_id, text, reply_to_message=None, markup=None):
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     markup = telebot.types.InlineKeyboardMarkup(row_width=1)
-    btn_portfolio1 = telebot.types.InlineKeyboardButton(
-        text='Portfolio 1', 
-        web_app=telebot.types.WebAppInfo(url=PORTFOLIO_URL)
-    )
-    btn_portfolio2 = telebot.types.InlineKeyboardButton(
-        text='Portfolio 2', 
-        web_app=telebot.types.WebAppInfo(url=PORTFOLIO_URL2)
-    )
-    btn_presentation = telebot.types.InlineKeyboardButton(
-        text='Show Presentation', 
-        callback_data='show_presentation'
-    )
+    btn_portfolio1 = telebot.types.InlineKeyboardButton(text='Portfolio 1', web_app=telebot.types.WebAppInfo(url=PORTFOLIO_URL))
+    btn_portfolio2 = telebot.types.InlineKeyboardButton(text='Portfolio 2', web_app=telebot.types.WebAppInfo(url=PORTFOLIO_URL2))
+    btn_presentation = telebot.types.InlineKeyboardButton(text='Show Presentation', callback_data='show_presentation')
     markup.add(btn_portfolio1, btn_portfolio2, btn_presentation)
     
     welcome_msg = """Hello! I am Gemini 2.0 AI Bot 🤖
@@ -86,7 +75,7 @@ def send_presentation(call):
         with open('pressentationm1.mp4', 'rb') as video:
             bot.send_video(chat_id, video, caption='Here is my presentation 🎬')
     except FileNotFoundError:
-        bot.send_message(chat_id, "pressentationm1.mp4 file not found. Make sure it is in the same folder as bot.py")
+        bot.send_message(chat_id, "pressentationm1.mp4 file not found")
     except Exception as e:
         bot.send_message(chat_id, f"Error sending video: {e}")
 
@@ -113,10 +102,7 @@ Rules:
 3. Use Arabic if user writes Arabic, English if English
 4. Focus on skills, experience, and achievements"""
             
-            response = client.models.generate_content(
-                model=MODEL_NAME,
-                contents=[types.Content(role="user", parts=[types.Part(text=summary_prompt)])]
-            )
+            response = client.models.generate_content(model=MODEL_NAME, contents=[types.Content(role="user", parts=[types.Part(text=summary_prompt)])])
             bot_reply = response.text
             split_and_send(chat_id, bot_reply, reply_to_message=message)
             return
@@ -127,36 +113,20 @@ Rules:
     
     try:
         bot.send_chat_action(chat_id, 'typing')
-        chat_history[chat_id].append(
-            types.Content(role="user", parts=[types.Part(text=user_text)])
-        )
+        chat_history[chat_id].append(types.Content(role="user", parts=[types.Part(text=user_text)]))
         
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=chat_history[chat_id]
-        )
+        response = client.models.generate_content(model=MODEL_NAME, contents=chat_history[chat_id])
         
         bot_reply = response.text
-        chat_history[chat_id].append(
-            types.Content(role="model", parts=[types.Part(text=bot_reply)])
-        )
+        chat_history[chat_id].append(types.Content(role="model", parts=[types.Part(text=bot_reply)]))
         
         if len(chat_history[chat_id]) > 20:
             chat_history[chat_id] = chat_history[chat_id][-20:]
         
         markup = telebot.types.InlineKeyboardMarkup(row_width=1)
-        btn_portfolio1 = telebot.types.InlineKeyboardButton(
-            text='Portfolio 1', 
-            web_app=telebot.types.WebAppInfo(url=PORTFOLIO_URL)
-        )
-        btn_portfolio2 = telebot.types.InlineKeyboardButton(
-            text='Portfolio 2', 
-            web_app=telebot.types.WebAppInfo(url=PORTFOLIO_URL2)
-        )
-        btn_presentation = telebot.types.InlineKeyboardButton(
-            text='Show Presentation', 
-            callback_data='show_presentation'
-        )
+        btn_portfolio1 = telebot.types.InlineKeyboardButton(text='Portfolio 1', web_app=telebot.types.WebAppInfo(url=PORTFOLIO_URL))
+        btn_portfolio2 = telebot.types.InlineKeyboardButton(text='Portfolio 2', web_app=telebot.types.WebAppInfo(url=PORTFOLIO_URL2))
+        btn_presentation = telebot.types.InlineKeyboardButton(text='Show Presentation', callback_data='show_presentation')
         markup.add(btn_portfolio1, btn_portfolio2, btn_presentation)
         
         split_and_send(chat_id, bot_reply, reply_to_message=message, markup=markup)
@@ -165,18 +135,13 @@ Rules:
         print(f"Error: {e}")
         bot.reply_to(message, "An error occurred 😅 Try /clear and start again")
 
-# ========== Flask Server for Railway Keep Alive ==========
-app = Flask('')
+# ========== Flask App for Railway ==========
+app = Flask(__name__)
+
 @app.route('/')
 def home(): 
     return "Bot is alive on Railway ✅"
 
-def run_server():
-    port = int(os.environ.get('PORT'))  # ده التعديل الوحيد - ياخد بورت Railway
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
-threading.Thread(target=run_server).start()
-# ======================================================
-
-print("✅ Bot is running... Open Telegram and test it")
-bot.infinity_polling()
