@@ -1,5 +1,5 @@
-[phases.setup]
-misePythonGithubAttestations = false
+[settings]
+python.github_attestations = false
 
 [build]
 cmd = "pip install -r requirements.txt"
