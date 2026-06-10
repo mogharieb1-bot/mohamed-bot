@@ -3,10 +3,13 @@ from google import genai
 from google.genai import types
 from collections import defaultdict
 import os
+import threading
+from flask import Flask
 
-# ================== PUT YOUR CREDENTIALS HERE ==================
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")  # Get from @BotFather
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")   # Get from Google AI Studio
+# ================== CREDENTIALS FROM RENDER ==================
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_TOKEN")  # غيرتها عشان Render
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")   
+ADMIN_ID = os.environ.get("ADMIN_ID")  # ضفتها عشان تستخدمها بعدين لو عايز
 # ==============================================================
 
 # Initialize Gemini 2.0 Flash
@@ -34,7 +37,7 @@ PORTFOLIO_URL2 = "https://incredible-tarsier-1d356b.netlify.app/"
 
 def split_and_send(chat_id, text, reply_to_message=None, markup=None):
     """تقسم الرسالة لو طويلة وتبعتها على كذا جزء"""
-    max_length = 4000  # تليجرام اخره 4096 فخلينا في السيف
+    max_length = 4000
     for i in range(0, len(text), max_length):
         chunk = text[i:i+max_length]
         if i == 0 and reply_to_message:
@@ -44,7 +47,6 @@ def split_and_send(chat_id, text, reply_to_message=None, markup=None):
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    # Create buttons
     markup = telebot.types.InlineKeyboardMarkup(row_width=1)
     btn_portfolio1 = telebot.types.InlineKeyboardButton(
         text='Portfolio 1', 
@@ -76,7 +78,6 @@ def clear_history(message):
     chat_history[chat_id] = []
     bot.reply_to(message, "Chat history cleared. Starting fresh 👌")
 
-# ========== Presentation button handler ==========
 @bot.callback_query_handler(func=lambda call: call.data == 'show_presentation')
 def send_presentation(call):
     chat_id = call.message.chat.id
@@ -97,12 +98,10 @@ def handle_message(message):
     if user_text.startswith('/'):
         return
     
-    # ========== Answer about you from aboutme.txt with summarization ==========
     keywords = ['mohamed', 'mohammed', 'who are you', 'tell me about you', 'skills', 'experience', 'cv']
     if any(k in user_text.lower() for k in keywords) and MY_INFO:
         try:
             bot.send_chat_action(chat_id, 'typing')
-            # اطلب من Gemini يلخص aboutme.txt في 2000 حرف
             summary_prompt = f"""You are Mohamed's portfolio bot.
 Use ONLY this info about Mohamed: {MY_INFO}
 
@@ -125,34 +124,26 @@ Rules:
             print(f"Summarization Error: {e}")
             bot.reply_to(message, "Error summarizing info. Try again.")
             return
-    # =========================================================
     
     try:
         bot.send_chat_action(chat_id, 'typing')
-        
-        # Add user message to history
         chat_history[chat_id].append(
             types.Content(role="user", parts=[types.Part(text=user_text)])
         )
         
-        # Send full history to Gemini 2.0
         response = client.models.generate_content(
             model=MODEL_NAME,
             contents=chat_history[chat_id]
         )
         
         bot_reply = response.text
-        
-        # Add bot reply to history
         chat_history[chat_id].append(
             types.Content(role="model", parts=[types.Part(text=bot_reply)])
         )
         
-        # Keep only last 20 messages to save tokens
         if len(chat_history[chat_id]) > 20:
             chat_history[chat_id] = chat_history[chat_id][-20:]
         
-        # Send reply with buttons every time
         markup = telebot.types.InlineKeyboardMarkup(row_width=1)
         btn_portfolio1 = telebot.types.InlineKeyboardButton(
             text='Portfolio 1', 
@@ -168,12 +159,23 @@ Rules:
         )
         markup.add(btn_portfolio1, btn_portfolio2, btn_presentation)
         
-        # استخدم الدالة الجديدة عشان لو الرد طويل
         split_and_send(chat_id, bot_reply, reply_to_message=message, markup=markup)
         
     except Exception as e:
         print(f"Error: {e}")
         bot.reply_to(message, "An error occurred 😅 Try /clear and start again")
+
+# ========== Flask Server for Render Keep Alive ==========
+app = Flask('')
+@app.route('/')
+def home(): 
+    return "Bot is alive on Render ✅"
+
+def run_server():
+    app.run(host='0.0.0.0', port=10000)
+
+threading.Thread(target=run_server).start()
+# ======================================================
 
 print("✅ Bot is running... Open Telegram and test it")
 bot.infinity_polling()
