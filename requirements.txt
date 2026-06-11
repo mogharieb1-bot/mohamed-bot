@@ -1,4 +1,5 @@
-gunicorn
+openai
 python-telegram-bot
-flask
-aiohttp
+requests
+pillow
+pandas
