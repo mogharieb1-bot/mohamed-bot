@@ -3,14 +3,16 @@ from google import genai
 from google.genai import types
 from collections import defaultdict
 import os
-import threading
-from flask import Flask, request
+from dotenv import load_dotenv
+
+# ========== تحميل المتغيرات من .env للتجربة المحلية ==========
+load_dotenv()
+# ==============================================================
 
 # ================== CREDENTIALS FROM RAILWAY ==================
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")   
 ADMIN_ID = os.environ.get("ADMIN_ID")
-PORT = int(os.environ.get("PORT", 5000))  # Railway بيدي Port تلقائي
 # ==============================================================
 
 # Initialize Gemini 2.0 Flash
@@ -166,25 +168,9 @@ Rules:
         print(f"Error: {e}")
         bot.reply_to(message, "An error occurred 😅 Try /clear and start again")
 
-# ========== Flask Server + Webhook for Railway ==========
-app = Flask(__name__)
-
-@app.route('/')
-def home(): 
-    return "Bot is alive on Railway ✅", 200  # ده اللي UptimeRobot هيـ Ping عليه
-
-@app.route('/' + TELEGRAM_BOT_TOKEN, methods=['POST'])
-def getMessage():
-    bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
-    return "!", 200
-
-def set_webhook():
-    bot.remove_webhook()
-    webhook_url = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN')}/{TELEGRAM_BOT_TOKEN}"
-    bot.set_webhook(url=webhook_url)
-    print(f"✅ Webhook set to: {webhook_url}")
-
+# ========== تشغيل البوت بـ Polling بدل Webhook عشان Railway ==========
 if __name__ == "__main__":
-    set_webhook()
-    app.run(host="0.0.0.0", port=PORT)
-# ======================================================
+    print("✅ Bot started with polling mode - No port needed")
+    bot.remove_webhook()  # نشيل أي webhook قديم
+    bot.polling(none_stop=True, interval=0)
+# ======================================================================
